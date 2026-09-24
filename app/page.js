@@ -1,143 +1,180 @@
 "use client";
-import { useState } from "react";
-const stocks = [
-  { symbol: "QQQ", name: "NASDAQ ETF" },
-  { symbol: "NVDA", name: "NVIDIA" },
-  { symbol: "MSFT", name: "Microsoft" },
-  { symbol: "AAPL", name: "Apple" },
-  { symbol: "AVGO", name: "Broadcom" },
-  { symbol: "TECL", name: "Direxion 3x Tech ETF" },
-];
+
+import { useEffect, useState } from "react";
+
 export default function Home() {
-  const [selected, setSelected] = useState("QQQ");
+  const [stocks, setStocks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatedAt, setUpdatedAt] = useState("");
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch("/api/stocks");
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "データ取得に失敗しました");
+      }
+
+      setStocks(result.data || []);
+      setUpdatedAt(result.updatedAt || "");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const getTrend = (stock) => {
+    const { current, ma25, ma50, ma99 } = stock;
+
+    if (
+      current > ma25 &&
+      ma25 > ma50 &&
+      ma50 > ma99
+    ) {
+      return "上昇";
+    }
+
+    if (
+      current < ma25 &&
+      ma25 < ma50 &&
+      ma50 < ma99
+    ) {
+      return "下降";
+    }
+
+    return "中立";
+  };
+
+  const formatPrice = (price) => {
+    if (price == null) return "---";
+    return price.toFixed(2);
+  };
+
   return (
     <main
       style={{
-        minHeight: "100vh",
-        background: "#f5f5f5",
+        maxWidth: "900px",
+        margin: "0 auto",
         padding: "24px",
         fontFamily: "Arial, sans-serif",
       }}
     >
-      <div
+      <h1>TREND MONITOR</h1>
+
+      <p>レバレッジETF運用モニター</p>
+
+      <button
+        onClick={loadData}
+        disabled={loading}
         style={{
-          maxWidth: "900px",
-          margin: "0 auto",
+          padding: "10px 18px",
+          fontSize: "16px",
+          cursor: "pointer",
+          marginBottom: "20px",
         }}
       >
-        <h1 style={{ marginBottom: "8px" }}>
-          TREND MONITOR
-        </h1>
-        <p style={{ color: "#666", marginBottom: "24px" }}>
-          レバレッジETF運用モニター
-        </p>
+        {loading ? "取得中..." : "データ更新"}
+      </button>
+
+      {error && (
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(130px, 1fr))",
-            gap: "10px",
-            marginBottom: "24px",
+            padding: "15px",
+            marginBottom: "20px",
+            border: "1px solid #ccc",
           }}
         >
-          {stocks.map((stock) => (
-            <button
-              key={stock.symbol}
-              onClick={() => setSelected(stock.symbol)}
-              style={{
-                padding: "14px 10px",
-                borderRadius: "10px",
-                border: "1px solid #ccc",
-                background:
-                  selected === stock.symbol
-                    ? "#222"
-                    : "#fff",
-                color:
-                  selected === stock.symbol
-                    ? "#fff"
-                    : "#222",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              {stock.symbol}
-            </button>
-          ))}
+          エラー：{error}
         </div>
-        <section
-          style={{
-            background: "#fff",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          }}
-        >
-          <h2>{selected}</h2>
-          <p style={{ color: "#666" }}>
-            {stocks.find((s) => s.symbol === selected)?.name}
-          </p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(160px, 1fr))",
-              gap: "12px",
-              marginTop: "20px",
-            }}
-          >
-            <Metric label="現在値" value="---" />
-            <Metric label="MA25" value="---" />
-            <Metric label="MA50" value="---" />
-            <Metric label="MA99" value="---" />
-          </div>
-          <div
-            style={{
-              marginTop: "24px",
-              padding: "20px",
-              borderRadius: "12px",
-              background: "#f7f7f7",
-            }}
-          >
-            <h3>トレンド判定</h3>
-            <p style={{ fontSize: "24px", fontWeight: "bold" }}>
-              データ取得待ち
-            </p>
-          </div>
-        </section>
-        <p
-          style={{
-            marginTop: "24px",
-            fontSize: "13px",
-            color: "#777",
-          }}
-        >
-          ※現在は画面確認用です。次の段階で株価データと移動平均を接続します。
+      )}
+
+      {updatedAt && (
+        <p>
+          最終更新：{new Date(updatedAt).toLocaleString("ja-JP")}
         </p>
-      </div>
-    </main>
-  );
-}
-function Metric({ label, value }) {
-  return (
-    <div
-      style={{
-        padding: "16px",
-        border: "1px solid #ddd",
-        borderRadius: "10px",
-      }}
-    >
-      <div style={{ fontSize: "13px", color: "#777" }}>
-        {label}
-      </div>
+      )}
+
       <div
         style={{
-          fontSize: "20px",
-          fontWeight: "bold",
-          marginTop: "6px",
+          overflowX: "auto",
         }}
       >
-        {value}
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            marginTop: "20px",
+          }}
+        >
+          <thead>
+            <tr>
+              <th>銘柄</th>
+              <th>現在値</th>
+              <th>MA25</th>
+              <th>MA50</th>
+              <th>MA99</th>
+              <th>判定</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {stocks.map((stock) => (
+              <tr key={stock.symbol}>
+                <td
+                  style={{
+                    padding: "12px",
+                    textAlign: "center",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {stock.symbol}
+                </td>
+
+                <td style={{ padding: "12px", textAlign: "center" }}>
+                  {formatPrice(stock.current)}
+                </td>
+
+                <td style={{ padding: "12px", textAlign: "center" }}>
+                  {formatPrice(stock.ma25)}
+                </td>
+
+                <td style={{ padding: "12px", textAlign: "center" }}>
+                  {formatPrice(stock.ma50)}
+                </td>
+
+                <td style={{ padding: "12px", textAlign: "center" }}>
+                  {formatPrice(stock.ma99)}
+                </td>
+
+                <td
+                  style={{
+                    padding: "12px",
+                    textAlign: "center",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {getTrend(stock)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </div>
+
+      <p style={{ marginTop: "30px", fontSize: "14px" }}>
+        判定ルール：現在値・MA25・MA50・MA99の並びからトレンドを判定
+      </p>
+    </main>
   );
 }
